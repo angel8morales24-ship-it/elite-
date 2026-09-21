@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Striker — Performance App</title>
+<style>
+  :root{
+    --green:#2ecc71; --yellow:#f1c40f; --red:#e74c3c;
+    --bg:#0f1115; --card:#181c24; --text:#eef1f6; --muted:#8b93a3; --accent:#4f8cff;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #232838;}
+  header h1{font-size:18px;margin:0;}
+  #userBadge{font-size:12px;color:var(--muted);}
+  nav{display:flex;background:var(--card);border-bottom:1px solid #232838;position:sticky;top:0;z-index:10;}
+  nav button{flex:1;padding:14px 6px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;}
+  nav button.active{color:var(--accent);border-bottom:2px solid var(--accent);}
+  main{padding:18px;max-width:520px;margin:0 auto;}
+  .tab{display:none;} .tab.active{display:block;}
+  .card{background:var(--card);border-radius:14px;padding:18px;margin-bottom:14px;}
+  .semaforo{width:120px;height:120px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;transition:.3s;}
+  .semaforo.green{background:radial-gradient(circle,var(--green),#1e9e57);}
+  .semaforo.yellow{background:radial-gradient(circle,var(--yellow),#c99a0c);}
+  .semaforo.red{background:radial-gradient(circle,var(--red),#b13327);}
+  .semaforo.blocked{background:#2a2f3d;color:var(--muted);}
+  .metric-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:4px 0;}
+  input, select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #2a2f3d;background:#10131a;color:var(--text);font-size:14px;}
+  label{font-size:12px;color:var(--muted);}
+  button.primary{width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;margin-top:10px;cursor:pointer;font-size:14px;}
+  button.secondary{width:100%;padding:10px;border-radius:8px;border:1px solid #2a2f3d;background:transparent;color:var(--muted);margin-top:8px;cursor:pointer;font-size:13px;}
+  .ex-item{padding:12px;border:1px solid #232838;border-radius:10px;margin-bottom:8px;}
+  .ex-item .tag{font-size:11px;color:var(--accent);}
+  .ex-item button{margin-top:6px;padding:8px 14px;border-radius:8px;border:1px solid #2a2f3d;background:#10131a;color:var(--text);cursor:pointer;}
+  #timerDisplay{font-size:42px;text-align:center;margin:14px 0;font-variant-numeric:tabular-nums;}
+  .timer-controls{display:flex;gap:8px;}
+  .timer-controls button{flex:1;padding:10px;border-radius:8px;border:1px solid #2a2f3d;background:#10131a;color:var(--text);cursor:pointer;}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;}
+  .modal-backdrop.active{display:flex;}
+  .modal{background:var(--card);padding:22px;border-radius:14px;width:90%;max-width:360px;text-align:center;}
+  .rpe-scale{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:14px 0;}
+  .rpe-scale button{width:38px;height:38px;border-radius:8px;border:1px solid #2a2f3d;background:#10131a;color:var(--text);cursor:pointer;}
+  .rpe-scale button.selected{background:var(--accent);border-color:var(--accent);}
+  .heatzone{fill:var(--accent);opacity:.35;}
+  .notice{background:#1f2937;border-left:3px solid var(--accent);padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:10px;}
+  .notice.warn{border-left-color:var(--red);background:#2a1a1a;}
+  video{width:100%;border-radius:10px;background:#000;}
+  h3{margin-top:0;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ Elite Striker</h1>
+  <span id="userBadge">Sin perfil</span>
+</header>
+
+<nav>
+  <button data-tab="dashboard" class="active">Readiness</button>
+  <button data-tab="sesion">Sesión</button>
+  <button data-tab="tactica">Táctica</button>
+  <button data-tab="nutricion">Nutrición</button>
+</nav>
+
+<main>
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" class="card">
+    <h3>Crear perfil</h3>
+    <label>Nombre</label><input id="ob_name" placeholder="Tu nombre">
+    <label>Posición</label>
+    <select id="ob_position">
+      <option>Portero</option><option>Central</option><option>Lateral</option>
+      <option>Mediocampista</option><option>Extremo</option><option>Delantero</option>
+    </select>
+    <label>Peso corporal (kg)</label><input id="ob_weight" type="number" placeholder="70">
+    <label>Día de partido</label>
+    <select id="ob_matchday">
+      <option>Saturday</option><option>Sunday</option><option>Friday</option>
+      <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option>
+    </select>
+    <button class="primary" onclick="createProfile()">Crear</button>
+  </div>
+
+  <!-- TAB: DASHBOARD -->
+  <section id="tab-dashboard" class="tab active">
+    <div class="card" id="wellnessCard">
+      <h3>Wellness de hoy</h3>
+      <label>Horas de sueño</label><input id="w_sleep" type="number" step="0.5" placeholder="7.5">
+      <label>Dolor muscular (1-10)</label><input id="w_soreness" type="number" min="1" max="10" placeholder="3">
+      <label>Estrés (1-10)</label><input id="w_stress" type="number" min="1" max="10" placeholder="3">
+      <button class="primary" onclick="submitWellness()">Guardar wellness</button>
+    </div>
+
+    <div class="card" id="readinessCard" style="text-align:center;">
+      <div id="semaforo" class="semaforo blocked">Sin datos</div>
+      <div id="readinessDetail"></div>
+    </div>
+
+    <div class="card">
+      <h3>Motor de Tapering</h3>
+      <div id="taperingBox"></div>
+    </div>
+  </section>
+
+  <!-- TAB: SESION -->
+  <section id="tab-sesion" class="tab">
+    <div id="riskNotice"></div>
+    <div class="card">
+      <h3>Ejercicios de hoy (según posición)</h3>
+      <div id="exerciseList"></div>
+    </div>
+    <div class="card" id="playerCard" style="display:none;">
+      <h4 id="exName"></h4>
+      <video id="exVideo" controls></video>
+      <div id="timerDisplay">00:00</div>
+      <div class="timer-controls">
+        <button onclick="timerStart()">▶️ Iniciar</button>
+        <button onclick="timerPause()">⏸️ Pausar</button>
+        <button onclick="timerReset()">⏹️ Reiniciar</button>
+      </div>
+      <button class="primary" onclick="finishSession()">Terminar sesión</button>
+    </div>
+    <div class="card">
+      <h3>Historial reciente</h3>
+      <div id="historyList" style="font-size:13px;color:var(--muted);"></div>
+    </div>
+  </section>
+
+  <!-- TAB: TACTICA -->
+  <section id="tab-tactica" class="tab">
+    <div class="card">
+      <h3>Pizarra táctica — mapa de calor por posición</h3>
+      <p class="notice">Zonas sugeridas de posicionamiento para generar superioridad numérica según tu posición.</p>
+      <svg viewBox="0 0 300 450" width="100%" style="background:#0d3d1f;border-radius:10px;">
+        <rect x="10" y="10" width="280" height="430" fill="none" stroke="#fff" stroke-width="2"/>
+        <line x1="10" y1="225" x2="290" y2="225" stroke="#fff" stroke-width="1"/>
+        <circle cx="150" cy="225" r="35" fill="none" stroke="#fff" stroke-width="1"/>
+        <g id="heatzones"></g>
+      </svg>
+      <div id="tacticaNota" class="notice" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- TAB: NUTRICION -->
+  <section id="tab-nutricion" class="tab">
+    <div class="card">
+      <h3>Nutrición reactiva</h3>
+      <div id="nutritionBox">Registra una sesión para ver recomendaciones.</div>
+      <button class="primary" onclick="checkNutrition()">Revisar sugerencia de hoy</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- MODAL RPE -->
+<div class="modal-backdrop" id="rpeModal">
+  <div class="modal">
+    <h3>¿Qué tan dura fue la sesión?</h3>
+    <p style="color:var(--muted);font-size:13px;">Escala de Borg (1 = muy fácil, 10 = esfuerzo máximo)</p>
+    <div class="rpe-scale" id="rpeScale"></div>
+    <button class="primary" onclick="submitRPE()">Confirmar</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   ELITE STRIKER — versión standalone (todo en el navegador, sin servidor)
+   Reemplaza PostgreSQL + Express + node-cron por localStorage + funciones JS.
+   La logica de negocio (ACWR, tapering, readiness, nutricion) es la misma
+   que el backend Node, solo que corre aqui mismo cada vez que abres la app.
+   ========================================================================= */
+
+const DB_KEY = "elite_striker_db_v1";
+
+function loadDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw) return JSON.parse(raw);
+  return { profile: null, wellness: {}, workouts: [], exercises: seedExercises() };
+}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+
+function seedExercises(){
+  return [
+    { id:1, name:"Sprint 30m repeticiones", video_url:"", type:"Cardio", load_impact:9, positions:["Extremo","Delantero","Lateral"] },
+    { id:2, name:"Cambios de ritmo con balón", video_url:"", type:"Tactico", load_impact:7, positions:["Extremo","Delantero"] },
+    { id:3, name:"Juego de posición 4v2", video_url:"", type:"Tactico", load_impact:6, positions:["Mediocampista","Central"] },
+    { id:4, name:"Salida de balón bajo presión", video_url:"", type:"Tactico", load_impact:5, positions:["Central","Portero"] },
+    { id:5, name:"Fuerza tren inferior (sentadilla/peso muerto)", video_url:"", type:"Fuerza", load_impact:8, positions:["all"] },
+    { id:6, name:"Pliometría y saltos", video_url:"", type:"Fuerza", load_impact:7, positions:["all"] },
+    { id:7, name:"Movilidad y estiramiento", video_url:"", type:"Recuperacion", load_impact:2, positions:["all"] },
+    { id:8, name:"Foam rolling + respiración", video_url:"", type:"Recuperacion", load_impact:1, positions:["all"] },
+    { id:9, name:"Trabajo aeróbico continuo (Zona 2)", video_url:"", type:"Cardio", load_impact:4, positions:["all"] },
+    { id:10, name:"Duelos 1v1 defensivos", video_url:"", type:"Tactico", load_impact:6, positions:["Central","Lateral"] },
+  ];
+}
+
+let DB = loadDB();
+
+// -------- Utilidades de fecha --------
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function daysAgoStr(n){ const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+const DAY_INDEX = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+function getWeekDates(refDateStr){
+  const d = new Date(refDateStr + "T00:00:00");
+  const dow = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((dow+6)%7));
+  const week = {};
+  const names = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  for(let i=0;i<7;i++){
+    const day = new Date(monday); day.setDate(monday.getDate()+i);
+    week[names[day.getDay()]] = day.toISOString().slice(0,10);
+  }
+  return week;
+}
+
+// -------- 1. ACWR --------
+function calculateACWR(asOfDate){
+  asOfDate = asOfDate || todayStr();
+  const acuteStart = daysAgoStr(6);
+  const chronicStart = daysAgoStr(27);
+  const inRange = (d, start, end) => d >= start && d <= end;
+
+  const acute = DB.workouts
+    .filter(w => !w.planned && inRange(w.date, acuteStart, asOfDate))
+    .reduce((s,w) => s + (w.total_load||0), 0);
+
+  const chronicSum = DB.workouts
+    .filter(w => !w.planned && inRange(w.date, chronicStart, asOfDate))
+    .reduce((s,w) => s + (w.total_load||0), 0);
+
+  const chronicWeeklyAvg = chronicSum / 4;
+  const ratio = chronicWeeklyAvg > 0 ? acute / chronicWeeklyAvg : 0;
+
+  return {
+    acute_load_7d: acute,
+    chronic_weekly_avg_28d: Number(chronicWeeklyAvg.toFixed(2)),
+    acwr: Number(ratio.toFixed(2)),
+    risk_zone: ratio > 1.5
+  };
+}
+
+// -------- 2. Trigger de riesgo (reemplaza "cronjob diario") --------
+// Se ejecuta cada vez que se abre la app o se registra algo, simulando
+// el cron que en el backend Node corria a las 4am.
+function applyInjuryRiskTrigger(){
+  const acwr = calculateACWR();
+  if(!acwr.risk_zone) return { acwr, overridden:false };
+
+  const recovery = DB.exercises.filter(e=>e.type==="Recuperacion").sort((a,b)=>a.load_impact-b.load_impact)[0];
+  const today = todayStr();
+  const already = DB.workouts.find(w=>w.date===today && w.planned);
+  if(!already && recovery){
+    DB.workouts.push({
+      id: Date.now(), exercise_id: recovery.id, date: today,
+      duration_mins: 20, rpe_score: null, total_load: null,
+      planned: true, session_type: "Recuperacion"
+    });
+    saveDB();
+  }
+  return { acwr, overridden:true, exercise: recovery,
+    reason: "ACWR > 1.5: riesgo de lesión inminente. Sesión reemplazada automáticamente." };
+}
+
+// -------- 3. Tapering --------
+function taperingPlan(matchDay, refDate){
+  refDate = refDate || todayStr();
+  const week = getWeekDates(refDate);
+  if(DAY_INDEX[matchDay] === undefined) throw new Error("matchDay inválido");
+
+  const matchDate = new Date(week[matchDay] + "T00:00:00");
+  const d2 = new Date(matchDate); d2.setDate(matchDate.getDate()-2);
+  const d1 = new Date(matchDate); d1.setDate(matchDate.getDate()-1);
+
+  const loadsTueWed = DB.workouts
+    .filter(w => w.date === week.Tuesday || w.date === week.Wednesday)
+    .map(w => w.total_load || 0);
+  const peak = loadsTueWed.length ? Math.max(...loadsTueWed) : 0;
+
+  return {
+    match_day: matchDay,
+    peak_load_tue_wed: peak,
+    d2_date: d2.toISOString().slice(0,10),
+    d1_date: d1.toISOString().slice(0,10),
+    d2_target_load: Math.round(peak*0.6),
+    d1_target_load: Math.round(peak*0.4),
+  };
+}
+
+// -------- 4. Readiness / Semáforo --------
+function readinessSemaphore(date){
+  date = date || todayStr();
+  const wellness = DB.wellness[date];
+  if(!wellness) return { blocked:true, reason:"Debes llenar tu wellness diario antes de ver el entrenamiento." };
+
+  const acwr = calculateACWR(date);
+  let score = 100;
+  score -= Math.max(0, (7 - wellness.sleep_hrs) * 8);
+  score -= wellness.muscle_soreness * 4;
+  score -= wellness.stress * 3;
+  if(acwr.acwr > 1.5) score -= 30;
+  else if(acwr.acwr > 1.3) score -= 15;
+  else if(acwr.acwr > 0 && acwr.acwr < 0.8) score -= 10;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  let semaphore = "green";
+  if(score < 50) semaphore = "red";
+  else if(score < 75) semaphore = "yellow";
+
+  return { blocked:false, score, semaphore, wellness, acwr };
+}
+
+// -------- 5. Nutrición reactiva --------
+function nutritionSuggestion(date){
+  date = date || todayStr();
+  const todays = DB.workouts.filter(w=>w.date===date && !w.planned);
+  const highDepletion = todays.some(w=>{
+    const ex = DB.exercises.find(e=>e.id===w.exercise_id);
+    return (ex && ex.type==="Cardio" && ex.load_impact>=7) || (w.total_load||0) >= 350;
+  });
+  if(!highDepletion) return { trigger:false };
+
+  const weight = (DB.profile && DB.profile.body_weight_kg) || 70;
+  const gramsPerKg = 1.2;
+  const grams = Math.round(weight * gramsPerKg);
+  return {
+    trigger:true,
+    grams_carbs: grams,
+    message: `Sesión de alta depleción detectada. Consume aproximadamente ${grams}g de carbohidratos en los próximos 30-45 min (${gramsPerKg}g/kg x ${weight}kg).`
+  };
+}
+
+// =========================================================================
+// UI
+// =========================================================================
+let ui = { timerSeconds:0, timerHandle:null, currentExercise:null, selectedRPE:null, sessionDuration:0 };
+
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+    if(btn.dataset.tab === "tactica") renderTactica();
+    if(btn.dataset.tab === "sesion") { loadExercises(); loadHistory(); showRiskNotice(); }
+    if(btn.dataset.tab === "dashboard") { loadDashboard(); loadTapering(); }
+  });
+});
+
+function createProfile(){
+  DB.profile = {
+    name: document.getElementById("ob_name").value || "Jugador",
+    position: document.getElementById("ob_position").value,
+    body_weight_kg: parseFloat(document.getElementById("ob_weight").value) || 70,
+    match_day: document.getElementById("ob_matchday").value
+  };
+  saveDB();
+  document.getElementById("onboarding").style.display = "none";
+  document.getElementById("userBadge").textContent = DB.profile.name + " · " + DB.profile.position;
+  loadDashboard(); loadExercises(); loadTapering();
+}
+
+function submitWellness(){
+  const date = todayStr();
+  DB.wellness[date] = {
+    sleep_hrs: parseFloat(document.getElementById("w_sleep").value),
+    muscle_soreness: parseInt(document.getElementById("w_soreness").value),
+    stress: parseInt(document.getElementById("w_stress").value)
+  };
+  saveDB();
+  applyInjuryRiskTrigger();
+  loadDashboard(); loadExercises(); showRiskNotice();
+}
+
+function loadDashboard(){
+  if(!DB.profile) return;
+  const d = readinessSemaphore();
+  const el = document.getElementById("semaforo");
+  const detail = document.getElementById("readinessDetail");
+  if(d.blocked){
+    el.className = "semaforo blocked";
+    el.textContent = "Bloqueado";
+    detail.innerHTML = `<p class="notice">${d.reason}</p>`;
+    return;
+  }
+  el.className = "semaforo " + d.semaphore;
+  el.textContent = d.semaphore==="green" ? "Óptimo" : d.semaphore==="yellow" ? "Precaución" : "Fatiga";
+  detail.innerHTML = `
+    <div class="metric-row"><span>Score readiness</span><span>${d.score}/100</span></div>
+    <div class="metric-row"><span>ACWR</span><span>${d.acwr.acwr} ${d.acwr.risk_zone ? "⚠️ riesgo" : ""}</span></div>
+    <div class="metric-row"><span>Carga aguda (7d)</span><span>${d.acwr.acute_load_7d}</span></div>
+    <div class="metric-row"><span>Carga crónica prom. (28d)</span><span>${d.acwr.chronic_weekly_avg_28d}</span></div>
+  `;
+}
+
+function loadTapering(){
+  if(!DB.profile) return;
+  const t = taperingPlan(DB.profile.match_day);
+  document.getElementById("taperingBox").innerHTML = `
+    <div class="metric-row"><span>Día de partido</span><span>${t.match_day}</span></div>
+    <div class="metric-row"><span>Pico de carga (mar/mié)</span><span>${t.peak_load_tue_wed}</span></div>
+    <div class="metric-row"><span>Meta D-2 (${t.d2_date})</span><span>${t.d2_target_load} (−40%)</span></div>
+    <div class="metric-row"><span>Meta D-1 (${t.d1_date})</span><span>${t.d1_target_load} (−60%)</span></div>
+  `;
+}
+
+function loadExercises(){
+  if(!DB.profile) return;
+  const pos = DB.profile.position;
+  const list = DB.exercises.filter(e => e.positions.includes("all") || e.positions.includes(pos));
+  document.getElementById("exerciseList").innerHTML = list.map(e => `
+    <div class="ex-item">
+      <div class="tag">${e.type} · impacto ${e.load_impact}/10</div>
+      <strong>${e.name}</strong><br>
+      <button onclick="openExercise(${e.id})">Iniciar</button>
+    </div>
+  `).join("");
+}
+
+function showRiskNotice(){
+  const today = todayStr();
+  const forced = DB.workouts.find(w=>w.date===today && w.planned);
+  const box = document.getElementById("riskNotice");
+  if(forced){
+    const ex = DB.exercises.find(e=>e.id===forced.exercise_id);
+    box.innerHTML = `<div class="card notice warn">⚠️ Tu ACWR está en zona de riesgo. Hoy se reemplazó tu sesión por: <strong>${ex ? ex.name : "Recuperación"}</strong>.</div>`;
+  } else {
+    box.innerHTML = "";
+  }
+}
+
+function openExercise(id){
+  ui.currentExercise = DB.exercises.find(e=>e.id===id);
+  document.getElementById("playerCard").style.display = "block";
+  document.getElementById("exName").textContent = ui.currentExercise.name;
+  document.getElementById("exVideo").removeAttribute("src");
+  timerReset();
+  document.getElementById("playerCard").scrollIntoView({behavior:"smooth"});
+}
+
+function timerStart(){
+  if(ui.timerHandle) return;
+  ui.timerHandle = setInterval(()=>{
+    ui.timerSeconds++;
+    const m = String(Math.floor(ui.timerSeconds/60)).padStart(2,"0");
+    const s = String(ui.timerSeconds%60).padStart(2,"0");
+    document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+  },1000);
+}
+function timerPause(){ clearInterval(ui.timerHandle); ui.timerHandle=null; }
+function timerReset(){ timerPause(); ui.timerSeconds=0; document.getElementById("timerDisplay").textContent="00:00"; }
+
+function finishSession(){
+  timerPause();
+  ui.sessionDuration = Math.max(1, Math.round(ui.timerSeconds/60));
+  const scale = document.getElementById("rpeScale");
+  scale.innerHTML = "";
+  for(let i=1;i<=10;i++){
+    const b = document.createElement("button");
+    b.textContent = i;
+    b.onclick = ()=>{ ui.selectedRPE=i; document.querySelectorAll("#rpeScale button").forEach(x=>x.classList.remove("selected")); b.classList.add("selected"); };
+    scale.appendChild(b);
+  }
+  document.getElementById("rpeModal").classList.add("active");
+}
+
+function submitRPE(){
+  if(!ui.selectedRPE){ alert("Selecciona un valor de 1 a 10"); return; }
+  const total_load = ui.sessionDuration * ui.selectedRPE;
+  DB.workouts.push({
+    id: Date.now(),
+    exercise_id: ui.currentExercise ? ui.currentExercise.id : null,
+    date: todayStr(),
+    duration_mins: ui.sessionDuration,
+    rpe_score: ui.selectedRPE,
+    total_load,
+    planned: false,
+    session_type: ui.currentExercise ? ui.currentExercise.type : null
+  });
+  saveDB();
+  document.getElementById("rpeModal").classList.remove("active");
+  document.getElementById("playerCard").style.display = "none";
+  ui.selectedRPE = null;
+
+  loadDashboard(); loadExercises(); loadHistory();
+  const nut = nutritionSuggestion();
+  if(nut.trigger) alert("🍌 " + nut.message);
+}
+
+function loadHistory(){
+  const rows = DB.workouts.filter(w=>!w.planned).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  document.getElementById("historyList").innerHTML = rows.length ? rows.map(w=>{
+    const ex = DB.exercises.find(e=>e.id===w.exercise_id);
+    return `<div class="metric-row"><span>${w.date} · ${ex?ex.name:"—"}</span><span>${w.duration_mins}min · RPE ${w.rpe_score} · carga ${w.total_load}</span></div>`;
+  }).join("") : "Sin sesiones registradas todavía.";
+}
+
+const ZONES = {
+  "Portero": [[150,400,25]],
+  "Central": [[110,300,22],[190,300,22]],
+  "Lateral": [[40,220,20],[260,220,20]],
+  "Mediocampista": [[150,225,30],[100,180,20],[200,180,20]],
+  "Extremo": [[40,100,20],[260,100,20]],
+  "Delantero": [[110,60,22],[190,60,22]]
+};
+function renderTactica(){
+  if(!DB.profile) return;
+  const g = document.getElementById("heatzones");
+  const zones = ZONES[DB.profile.position] || [];
+  g.innerHTML = zones.map(([x,y,r])=>`<circle class="heatzone" cx="${x}" cy="${y}" r="${r}"/>`).join("");
+  document.getElementById("tacticaNota").textContent =
+    `Como ${DB.profile.position}, estas zonas maximizan tu superioridad numérica al recibir el balón.`;
+}
+
+function checkNutrition(){
+  const d = nutritionSuggestion();
+  document.getElementById("nutritionBox").innerHTML = d.trigger
+    ? `<div class="notice">🍌 ${d.message}</div>`
+    : `<p style="color:var(--muted);">No se detectó una sesión de alta depleción hoy.</p>`;
+}
+
+// -------- Init --------
+(function init(){
+  if(DB.profile){
+    document.getElementById("onboarding").style.display = "none";
+    document.getElementById("userBadge").textContent = DB.profile.name + " · " + DB.profile.position;
+    applyInjuryRiskTrigger(); // simula el cronjob diario cada vez que abres la app
+    loadDashboard(); loadExercises(); loadTapering(); loadHistory(); showRiskNotice();
+  }
+})();
+</script>
+</body>
+</html>
